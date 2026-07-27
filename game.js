@@ -225,6 +225,13 @@ class SliceGame {
       document.getElementById("overOverlay").classList.add("hidden");
       document.getElementById("menuOverlay").classList.remove("hidden");
     });
+    document.getElementById("portalBtn").addEventListener("click", () => {
+      // Score/best is already saved to localStorage in endRound() before this screen shows.
+      window.location.href = 'https://cikguikhwansuhaimi.github.io/';
+    });
+    document.getElementById("portalBtnMenu").addEventListener("click", () => {
+      window.location.href = 'https://cikguikhwansuhaimi.github.io/';
+    });
     document.getElementById("muteBtn").addEventListener("click", () => {
       this.muted = !this.muted;
       document.getElementById("muteBtn").textContent = this.muted ? "🔇" : "🔊";
