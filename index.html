@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Slice Kata! - Ninja Bahasa Melayu</title>
+<style>
+  @font-face {
+    font-family: 'KenneyFuture';
+    src: url('assets/ui/Kenney Future.ttf') format('truetype');
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+    background: #10151f; font-family: 'KenneyFuture', sans-serif; touch-action: none;
+  }
+  #game-wrap {
+    position: relative; width: 100vw; height: 100vh; height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #phaser-container {
+    position: relative; width: 100vw; height: 100vh; height: 100dvh;
+    max-width: 900px;
+  }
+  @media (max-aspect-ratio: 3/5) {
+    #phaser-container { max-width: 100vw; }
+  }
+  #rotate-overlay {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    background: #0a0e16; color: #fff; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; padding: 30px;
+  }
+  #rotate-overlay .icon { font-size: 60px; margin-bottom: 18px; animation: rotatePulse 1.6s ease-in-out infinite; }
+  #rotate-overlay .msg { font-size: 16px; color: #9fd0ff; max-width: 320px; line-height: 1.6; }
+  @keyframes rotatePulse { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } }
+  @media (orientation: landscape) {
+    #rotate-overlay { display: flex; }
+  }
+  #phaser-container canvas { display: block; touch-action: none; width: 100%; height: 100%; }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 10;
+  }
+  .hud-top {
+    position: absolute; top: 10px; left: 10px; right: 10px;
+    display: flex; flex-direction: column; gap: 8px; align-items: center;
+  }
+  .hud-row1 { display: flex; justify-content: space-between; align-items: flex-start; width: 100%; }
+  .banner {
+    background: linear-gradient(180deg,#2e7dff,#1a4fbf); border: 2px solid #9fd0ff;
+    border-radius: 16px; padding: 6px 16px; color: #fff; font-size: 13px;
+    text-align: center; box-shadow: 0 4px 0 #0b2d80; max-width: 82%;
+  }
+  .pill {
+    background: rgba(10,14,22,0.72); border: 2px solid #4fd1ff;
+    border-radius: 14px; padding: 6px 14px; color: #fff;
+    font-size: 15px; letter-spacing: 0.5px; text-shadow: 0 2px 0 #000;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .lives { color: #ff5d7a; font-size: 18px; letter-spacing: 2px; }
+  .combo-badge {
+    position: absolute; top: 96px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,196,0,0.15); border: 2px solid #ffcc00; color: #ffcc00;
+    border-radius: 10px; padding: 4px 12px; font-size: 14px; opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .combo-badge.show { opacity: 1; }
+  .tierup {
+    position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    background: linear-gradient(180deg,#ffd75e,#e0a017); border: 3px solid #fff;
+    border-radius: 16px; padding: 14px 24px; color: #3a2400; font-size: 16px;
+    text-align: center; box-shadow: 0 6px 0 #8f6206, 0 0 30px rgba(255,215,94,0.6);
+    animation: tierPop 2.2s ease-out forwards; z-index: 40; white-space: nowrap;
+  }
+  @keyframes tierPop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    12% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    20% { transform: translate(-50%, -50%) scale(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+  }
+  .banner b { color: #ffe86b; font-size: 17px; }
+  .timerbar-wrap {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    width: 70%; max-width: 420px; height: 14px; background: rgba(0,0,0,0.5);
+    border: 2px solid #fff; border-radius: 8px; overflow: hidden;
+  }
+  .timerbar { height: 100%; width: 100%; background: linear-gradient(90deg,#5cff8f,#1fbf5a); transition: width 0.2s linear; }
+  .timerbar.low { background: linear-gradient(90deg,#ff8a5c,#e0392b); }
+  .mute-btn, .quit-btn {
+    pointer-events: all; cursor: pointer; background: rgba(10,14,22,0.72);
+    border: 2px solid #4fd1ff; border-radius: 10px; color: #fff; font-size: 18px;
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  }
+  .power-row { display: flex; gap: 10px; }
+  .power-btn {
+    pointer-events: all; cursor: pointer; background: rgba(10,14,22,0.72);
+    border: 2px solid #4fd1ff; border-radius: 12px; padding: 5px 12px; color: #fff;
+    font-size: 14px; display: flex; align-items: center; gap: 5px; opacity: 0.4;
+    transition: opacity 0.2s, box-shadow 0.2s;
+  }
+  .power-btn.active { opacity: 1; box-shadow: 0 0 12px rgba(255,215,94,0.7); border-color: #ffd75e; }
+  .freeze-overlay {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle, rgba(140,220,255,0.18), rgba(90,180,255,0.32));
+    transition: opacity 0.3s;
+  }
+  .freeze-overlay.show { opacity: 1; }
+  .flash {
+    position: absolute; inset: 0; background: rgba(255,0,60,0.35); opacity: 0;
+    pointer-events: none;
+  }
+  .flash.hit { animation: flashHit 0.35s ease-out; }
+  @keyframes flashHit { 0% { opacity: 1; } 100% { opacity: 0; } }
+  .floattext {
+    position: absolute; font-size: 20px; font-weight: bold; pointer-events: none;
+    text-shadow: 0 2px 3px rgba(0,0,0,0.6); animation: floatUp 0.7s ease-out forwards;
+  }
+  @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1);} 100% { opacity: 0; transform: translateY(-40px) scale(1.2);} }
+
+  /* ---------- Overlays (menu / results) ---------- */
+  .overlay {
+    position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: radial-gradient(ellipse at center, #1b2740 0%, #0a0e16 100%);
+    color: #fff; padding: 20px;
+  }
+  .hidden { display: none !important; }
+  .title {
+    font-size: 42px; color: #ffce3d; text-shadow: 0 4px 0 #b5720a, 0 8px 14px rgba(0,0,0,0.5);
+    margin: 0 0 4px 0; letter-spacing: 1px;
+  }
+  .subtitle { color: #9fd0ff; font-size: 15px; margin-bottom: 26px; letter-spacing: 0.5px; }
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 420px; width: 90%; }
+  .cat-btn {
+    cursor: pointer; border: none; border-radius: 14px; padding: 16px 10px;
+    color: #fff; font-family: inherit; font-size: 15px; letter-spacing: 0.5px;
+    box-shadow: 0 5px 0 rgba(0,0,0,0.35); transition: transform 0.08s;
+  }
+  .cat-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+  .cat-btn small { display:block; font-size: 11px; opacity: 0.85; margin-top: 4px; font-weight: normal; }
+  .c1 { background: linear-gradient(180deg,#5cc9ff,#1a8fd6); }
+  .c2 { background: linear-gradient(180deg,#7cec7c,#28a745); }
+  .c3 { background: linear-gradient(180deg,#ffb454,#e0781b); }
+  .c4 { background: linear-gradient(180deg,#ff8ab0,#d6407e); }
+  .bigbtn {
+    margin-top: 22px; cursor: pointer; border: none; border-radius: 14px;
+    padding: 12px 34px; font-family: inherit; font-size: 16px; color: #fff;
+    background: linear-gradient(180deg,#ffd75e,#e0a017); box-shadow: 0 5px 0 #8f6206;
+  }
+  .bigbtn:active { transform: translateY(4px); box-shadow: 0 1px 0 #8f6206; }
+  .ghostbtn {
+    margin-top: 10px; cursor: pointer; background: transparent; border: 2px solid #4fd1ff;
+    border-radius: 12px; padding: 9px 24px; font-family: inherit; font-size: 13px; color: #9fd0ff;
+  }
+  .howto { max-width: 440px; font-size: 13px; line-height: 1.7; color: #cfe6ff; text-align: left;
+    background: rgba(255,255,255,0.06); border-radius: 12px; padding: 16px 20px; margin-top: 6px; }
+  .howto b { color: #ffce3d; }
+  .intro-grid { display: flex; flex-direction: column; gap: 12px; max-width: 440px; width: 92%; }
+  .intro-card { border-radius: 14px; padding: 14px 18px; text-align: left; box-shadow: 0 4px 0 rgba(0,0,0,0.35); }
+  .intro-h { font-size: 17px; font-weight: bold; color: #fff; margin-bottom: 4px; }
+  .intro-d { font-size: 13px; color: #eef6ff; line-height: 1.5; margin-bottom: 6px; }
+  .intro-e { font-size: 12px; color: #fff3cc; }
+  .intro-e b { color: #fff; }
+  .ic1 { background: linear-gradient(135deg,#1a8fd6,#0f5f96); }
+  .ic2 { background: linear-gradient(135deg,#28a745,#1b7a32); }
+  .ic3 { background: linear-gradient(135deg,#e0781b,#a85812); }
+  .ic4 { background: linear-gradient(135deg,#d6407e,#a12b5e); }
+  .resultbox { font-size: 15px; line-height: 2; }
+  .resultbox .big { font-size: 30px; color: #ffce3d; }
+  .credit {
+    position: absolute; bottom: 36px; left: 0; right: 0; text-align: center;
+    font-size: 12px; color: #a8c4ef; letter-spacing: 0.4px; z-index: 30;
+    pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.6);
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+<div id="rotate-overlay">
+  <div class="icon">📱</div>
+  <div class="msg">Sila pusing peranti anda ke mod <b>POTRET</b><br>untuk main Slice Kata!</div>
+</div>
+<div id="game-wrap">
+ <div id="phaser-container">
+  <canvas id="gameCanvas"></canvas>
+  <div id="loadingText" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#9fd0ff; font-size:14px; z-index:5;">Memuatkan... 0%</div>
+  <audio id="bgmAudio" src="assets/audio/bgm.ogg" loop preload="auto"></audio>
+  <div class="hud" id="hud">
+    <div class="hud-top">
+      <div class="hud-row1">
+        <div style="display:flex; gap:8px;">
+          <div class="quit-btn" id="quitBtn" style="pointer-events:all;">⌂</div>
+          <div class="pill">⭐ <span id="scoreVal">0</span></div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:flex-start;">
+          <div class="pill lives" id="livesVal">❤❤❤</div>
+          <div class="mute-btn" id="muteBtn">🔊</div>
+        </div>
+      </div>
+      <div class="banner" id="banner">Slice: <b id="bannerCat">-</b></div>
+      <div class="power-row" id="powerRow">
+        <div class="power-btn" id="freezeBtn">❄️ <span id="freezeCount">0</span></div>
+        <div class="power-btn" id="highlightBtn">💡 <span id="highlightCount">0</span></div>
+      </div>
+    </div>
+    <div class="combo-badge" id="comboBadge">COMBO x1</div>
+    <div class="timerbar-wrap"><div class="timerbar" id="timerbar"></div></div>
+    <div class="flash" id="flash"></div>
+    <div class="freeze-overlay" id="freezeOverlay"></div>
+  </div>
+
+  <!-- MENU -->
+  <div class="overlay" id="menuOverlay">
+    <h1 class="title">SLICE KATA!</h1>
+    <div class="subtitle">Ninja Bahasa Melayu — pilih kategori</div>
+    <div class="cat-grid">
+      <button class="cat-btn c1" data-cat="nama">Kata Nama<small>meja, buku, guru...</small></button>
+      <button class="cat-btn c2" data-cat="kerja">Kata Kerja<small>makan, lari, tulis...</small></button>
+      <button class="cat-btn c3" data-cat="adjektif">Kata Adjektif<small>besar, cantik, cepat...</small></button>
+      <button class="cat-btn c4" data-cat="ganti">Kata Ganti Nama<small>saya, dia, kami...</small></button>
+    </div>
+    <button class="ghostbtn" id="introBtn">📖 Pengenalan Kelas Kata</button>
+    <button class="ghostbtn" id="howtoBtn">Cara Bermain</button>
+  </div>
+
+  <!-- PENGENALAN -->
+  <div class="overlay hidden" id="introOverlay" style="overflow-y:auto; padding-top:30px; padding-bottom:30px;">
+    <h1 class="title" style="font-size:26px;">Pengenalan Kelas Kata</h1>
+    <div class="subtitle" style="margin-bottom:16px;">Faham dulu sebelum mula hiris!</div>
+    <div class="intro-grid">
+      <div class="intro-card ic1">
+        <div class="intro-h">Kata Nama</div>
+        <div class="intro-d">Kata yang merujuk kepada orang, tempat, benda atau perkara.</div>
+        <div class="intro-e">Contoh: <b>meja, guru, sekolah, kereta</b></div>
+      </div>
+      <div class="intro-card ic2">
+        <div class="intro-h">Kata Kerja</div>
+        <div class="intro-d">Kata yang menunjukkan perbuatan atau perlakuan sesuatu.</div>
+        <div class="intro-e">Contoh: <b>makan, berlari, menulis, bermain</b></div>
+      </div>
+      <div class="intro-card ic3">
+        <div class="intro-h">Kata Adjektif</div>
+        <div class="intro-d">Kata yang menerangkan sifat atau keadaan bagi kata nama/ganti nama.</div>
+        <div class="intro-e">Contoh: <b>besar, cantik, cepat, sedih</b></div>
+      </div>
+      <div class="intro-card ic4">
+        <div class="intro-h">Kata Ganti Nama</div>
+        <div class="intro-d">Kata yang menggantikan kata nama supaya tidak diulang berkali-kali.</div>
+        <div class="intro-e">Contoh: <b>saya, awak, dia, kami, mereka</b></div>
+      </div>
+    </div>
+    <button class="bigbtn" id="backFromIntro">Kembali</button>
+  </div>
+
+  <!-- HOW TO -->
+  <div class="overlay hidden" id="howtoOverlay">
+    <h1 class="title" style="font-size:28px;">Cara Bermain</h1>
+    <div class="howto">
+      1. Pilih kategori kata (contoh: <b>Kata Adjektif</b>).<br>
+      2. Buah akan terbang keluar, setiap satu ada perkataan.<br>
+      3. <b>Hiris (swipe)</b> buah yang perkataannya sepadan dengan kategori.<br>
+      4. Jangan hiris buah dari kategori lain — nyawa akan berkurang!<br>
+      5. Hiris berturut-turut untuk dapat <b>combo</b> markah lagi tinggi.<br>
+      6. Masa tamat atau nyawa habis = permainan tamat.
+    </div>
+    <button class="bigbtn" id="backFromHowto">Kembali</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay hidden" id="overOverlay">
+    <h1 class="title" id="overTitle" style="font-size:30px;">TAMAT!</h1>
+    <div class="resultbox">
+      Markah: <span class="big" id="finalScore">0</span><br>
+      Combo Terbaik: <span id="finalCombo">0</span>x &nbsp;|&nbsp; Terbaik Kategori: <span id="finalBest">0</span>
+    </div>
+    <button class="bigbtn" id="retryBtn">Main Semula</button>
+    <button class="ghostbtn" id="menuBtn">Menu Utama</button>
+  </div>
+
+  <div class="credit">Dibina oleh Cikgu Ikhwan Suhaimi × Claude</div>
+ </div>
+</div>
+
+<script>
+  window.addEventListener("error", (e) => {
+    const box = document.createElement("div");
+    box.style.cssText = "position:fixed;inset:0;z-index:999;background:#1a0000;color:#ff8080;font:13px monospace;padding:20px;overflow:auto;white-space:pre-wrap;";
+    box.textContent = "RALAT GAME:\n" + (e.message || e) + "\n" + (e.filename ? (e.filename + ":" + e.lineno) : "");
+    document.body.appendChild(box);
+  });
+</script>
+<script src="game.js"></script>
+</body>
+</html>
