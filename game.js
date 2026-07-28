@@ -40,7 +40,7 @@ const BOOM_FRAMES = [0,2,4,6,8].map(i => "boom_" + String(i).padStart(2,"0"));
 const SFX = (() => {
   let ctx = null;
   let masterGain = null;
-  const SFX_MASTER_VOL = 1.7; // naikkan kelantangan keseluruhan SFX berbanding BGM
+  const SFX_MASTER_VOL = 2.6; // naikkan kelantangan keseluruhan SFX berbanding BGM
   function ac() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -154,7 +154,7 @@ class SliceGame {
     this.muted = false;
 
     this.bgm = document.getElementById("bgmAudio");
-    if (this.bgm) this.bgm.volume = 0.35; // lagu latar dikecilkan supaya SFX lagi jelas kedengaran
+    if (this.bgm) this.bgm.volume = 0.15; // lagu latar dikecilkan ketara masa gameplay supaya SFX jelas menonjol
 
     this._bindInput();
     this._wireDom();
@@ -340,6 +340,7 @@ class SliceGame {
 
     if (this.bgm) {
       this.bgm.currentTime = 0;
+      this.bgm.volume = 0.15;
       this.bgm.play().catch(() => {});
     }
   }
