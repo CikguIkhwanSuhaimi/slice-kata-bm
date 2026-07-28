@@ -33,6 +33,8 @@ function tierForScore(score) {
   return t;
 }
 
+const TIME_BONUS_MS = 2000; // bonus masa (ms) bila hiris BETUL - tukar nilai ni utk ubah berapa besar bonus
+
 const PUFF_FRAMES = [0,4,8,12,16,20,24].map(i => "puff_" + String(i).padStart(2,"0"));
 const BOOM_FRAMES = [0,2,4,6,8].map(i => "boom_" + String(i).padStart(2,"0"));
 
@@ -389,6 +391,12 @@ class SliceGame {
       this.score += pts;
       document.getElementById("scoreVal").textContent = this.score;
       this.floatText(f.x, f.y, "+" + pts, "#5cff8f");
+
+      // Bonus masa - hiris betul TAMBAH masa baki (bukan cuma berkurang macam biasa).
+      // Dikepilkan pada 0 supaya elapsed tak negatif (bar tak lebih 100%).
+      this.elapsed = Math.max(0, this.elapsed - TIME_BONUS_MS);
+      this.floatText(f.x, f.y - 26, "+" + (TIME_BONUS_MS / 1000) + "s ⏱️", "#7cd8ff");
+
       this.showCombo();
       if (this.combo >= 3) SFX.combo(this.combo);
       this.spawnEffect(f.x, f.y, PUFF_FRAMES);
