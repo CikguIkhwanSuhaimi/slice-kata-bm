@@ -33,7 +33,7 @@ function tierForScore(score) {
   return t;
 }
 
-const TIME_BONUS_MS = 2000; // bonus masa (ms) bila hiris BETUL - tukar nilai ni utk ubah berapa besar bonus
+const TIME_BONUS_MS = 3000; // bonus masa (ms) bila hiris BETUL - tukar nilai ni utk ubah berapa besar bonus
 
 const PUFF_FRAMES = [0,4,8,12,16,20,24].map(i => "puff_" + String(i).padStart(2,"0"));
 const BOOM_FRAMES = [0,2,4,6,8].map(i => "boom_" + String(i).padStart(2,"0"));
@@ -395,7 +395,7 @@ class SliceGame {
       // Bonus masa - hiris betul TAMBAH masa baki (bukan cuma berkurang macam biasa).
       // Dikepilkan pada 0 supaya elapsed tak negatif (bar tak lebih 100%).
       this.elapsed = Math.max(0, this.elapsed - TIME_BONUS_MS);
-      this.floatText(f.x, f.y - 26, "+" + (TIME_BONUS_MS / 1000) + "s ⏱️", "#7cd8ff");
+      this.showTimeBonus();
 
       this.showCombo();
       if (this.combo >= 3) SFX.combo(this.combo);
@@ -439,6 +439,23 @@ class SliceGame {
     el.classList.add("show");
     clearTimeout(this._comboTO);
     this._comboTO = setTimeout(() => el.classList.remove("show"), 900);
+  }
+
+  showTimeBonus() {
+    const wrap = document.getElementById("timerbarWrap");
+    const bar = document.getElementById("timerbar");
+    const pop = document.getElementById("timeBonusPop");
+    if (wrap) { wrap.classList.remove("bonus"); void wrap.offsetWidth; wrap.classList.add("bonus"); }
+    if (bar) { bar.classList.remove("bonus"); void bar.offsetWidth; bar.classList.add("bonus"); }
+    if (pop) {
+      pop.textContent = "+" + (TIME_BONUS_MS / 1000) + "s ⏱️";
+      pop.classList.remove("show"); void pop.offsetWidth; pop.classList.add("show");
+    }
+    clearTimeout(this._timeBonusTO);
+    this._timeBonusTO = setTimeout(() => {
+      if (wrap) wrap.classList.remove("bonus");
+      if (bar) bar.classList.remove("bonus");
+    }, 400);
   }
 
   showTierUp(tier) {

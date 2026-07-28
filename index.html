@@ -86,9 +86,23 @@
     position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
     width: 70%; max-width: 420px; height: 14px; background: rgba(0,0,0,0.5);
     border: 2px solid #fff; border-radius: 8px; overflow: hidden;
+    transition: box-shadow 0.15s ease-out;
   }
-  .timerbar { height: 100%; width: 100%; background: linear-gradient(90deg,#5cff8f,#1fbf5a); transition: width 0.2s linear; }
+  .timerbar-wrap.bonus { box-shadow: 0 0 18px 5px rgba(124,216,255,0.85); }
+  .timerbar { height: 100%; width: 100%; background: linear-gradient(90deg,#5cff8f,#1fbf5a); transition: width 0.2s linear, filter 0.15s ease-out; }
   .timerbar.low { background: linear-gradient(90deg,#ff8a5c,#e0392b); }
+  .timerbar.bonus { filter: brightness(1.9) saturate(1.3); }
+  .timebonus-pop {
+    position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+    color: #7cd8ff; font-size: 16px; font-weight: bold; text-shadow: 0 2px 3px rgba(0,0,0,0.75);
+    opacity: 0; pointer-events: none; white-space: nowrap; z-index: 11;
+  }
+  .timebonus-pop.show { animation: timeBonusFloat 0.85s ease-out; }
+  @keyframes timeBonusFloat {
+    0% { opacity: 0; transform: translate(-50%, 8px) scale(0.8); }
+    22% { opacity: 1; transform: translate(-50%, -6px) scale(1.2); }
+    100% { opacity: 0; transform: translate(-50%, -32px) scale(1); }
+  }
   .mute-btn, .quit-btn {
     pointer-events: all; cursor: pointer; background: rgba(10,14,22,0.72);
     border: 2px solid #4fd1ff; border-radius: 10px; color: #fff; font-size: 18px;
@@ -251,7 +265,8 @@
       </div>
     </div>
     <div class="combo-badge" id="comboBadge">COMBO x1</div>
-    <div class="timerbar-wrap"><div class="timerbar" id="timerbar"></div></div>
+    <div class="timerbar-wrap" id="timerbarWrap"><div class="timerbar" id="timerbar"></div></div>
+    <div class="timebonus-pop" id="timeBonusPop">+2s ⏱️</div>
     <div class="flash" id="flash"></div>
     <div class="freeze-overlay" id="freezeOverlay"></div>
   </div>
