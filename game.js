@@ -39,7 +39,20 @@ const BOOM_FRAMES = [0,2,4,6,8].map(i => "boom_" + String(i).padStart(2,"0"));
 // ======================= SFX (synthesized, no files needed) =======================
 const SFX = (() => {
   let ctx = null;
-  function ac() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
+  let masterGain = null;
+  function ac() {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = ctx.createGain();
+      masterGain.gain.value = 1;
+      masterGain.connect(ctx.destination);
+    }
+    return ctx;
+  }
+  function setMuted(muted) {
+    ac(); // pastikan context & masterGain wujud walau belum ada bunyi dimainkan lagi
+    masterGain.gain.value = muted ? 0 : 1;
+  }
   function tone(freq, dur, type, vol, glideTo) {
     const c = ac();
     const osc = c.createOscillator();
@@ -49,10 +62,10 @@ const SFX = (() => {
     if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, c.currentTime + dur);
     gain.gain.setValueAtTime(vol || 0.15, c.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
-    osc.connect(gain); gain.connect(c.destination);
+    osc.connect(gain); gain.connect(masterGain);
     osc.start(); osc.stop(c.currentTime + dur);
   }
-  function noise(dur, vol, freq) {
+  function noise(dur, vol, freq, filterType) {
     const c = ac();
     const bufferSize = Math.max(1, Math.floor(c.sampleRate * dur));
     const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
@@ -61,22 +74,36 @@ const SFX = (() => {
     const src = c.createBufferSource();
     src.buffer = buffer;
     const filter = c.createBiquadFilter();
-    filter.type = "bandpass";
+    filter.type = filterType || "bandpass";
     filter.frequency.value = freq || 1200;
     const gain = c.createGain();
     gain.gain.setValueAtTime(vol || 0.2, c.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
-    src.connect(filter); filter.connect(gain); gain.connect(c.destination);
+    src.connect(filter); filter.connect(gain); gain.connect(masterGain);
     src.start(); src.stop(c.currentTime + dur);
   }
   return {
-    swoosh: () => noise(0.15, 0.10, 2500),
+    setMuted,
+    // Bunyi hiris (blade swoosh) - pitch & volume naik ikut kelajuan swipe (speedFactor 0..1)
+    swoosh: (speedFactor) => {
+      const sf = speedFactor === undefined ? 0.5 : Math.max(0, Math.min(1, speedFactor));
+      noise(0.12 + sf * 0.06, 0.08 + sf * 0.09, 2000 + sf * 2200, "bandpass");
+    },
     correct: () => tone(660, 0.12, "triangle", 0.18, 990),
     wrong: () => tone(180, 0.28, "sawtooth", 0.20, 90),
     boom: () => { noise(0.35, 0.28, 300); tone(90, 0.3, "sine", 0.2, 40); },
+    // Kesan fizikal "potong buah" - dimainkan setiap kali hiris kena (betul ATAU salah), berasingan dari nada judgement
+    slice: () => { noise(0.09, 0.16, 3200, "highpass"); noise(0.07, 0.1, 500, "lowpass"); },
     combo: (n) => tone(500 + n * 60, 0.10, "triangle", 0.15, 800 + n * 80),
+    // Nada streak - naik sikit-sikit ikut panjang streak semasa (dimainkan setiap hiris BETUL)
+    streak: (n) => { const s = Math.min(n, 12); tone(440 + s * 35, 0.08, "sine", 0.12 + s * 0.01, 660 + s * 40); },
     powerup: () => { tone(500, 0.15, "sine", 0.2, 900); setTimeout(() => tone(700, 0.18, "sine", 0.22, 1100), 90); },
-    freeze: () => { tone(1200, 0.4, "sine", 0.15, 600); }
+    freeze: () => { tone(1200, 0.4, "sine", 0.15, 600); },
+    // Amaran masa nak tamat (tick lembut, main sekali sahaja bila masuk zon merah)
+    tick: () => tone(1000, 0.08, "square", 0.12),
+    // Fanfare tamat round
+    roundWin: () => { tone(523.25, 0.14, "triangle", 0.22, 784); setTimeout(() => tone(659.25, 0.14, "triangle", 0.22, 988), 120); setTimeout(() => tone(783.99, 0.3, "triangle", 0.25, 1046), 240); },
+    roundLose: () => { tone(330, 0.2, "sawtooth", 0.2, 220); setTimeout(() => tone(247, 0.2, "sawtooth", 0.2, 165), 180); setTimeout(() => tone(196, 0.4, "sawtooth", 0.22, 110), 360); }
   };
 })();
 
@@ -158,10 +185,18 @@ class SliceGame {
       if (this.trail.length === 0) return;
       const p = getPos(e);
       const now = performance.now();
+      const prev = this.trail[this.trail.length - 1];
       this.trail.push({ x: p.x, y: p.y, t: now });
       if (this.trail.length > 12) this.trail.shift();
 
-      if (!this._lastSwoosh || now - this._lastSwoosh > 140) { SFX.swoosh(); this._lastSwoosh = now; }
+      if (!this._lastSwoosh || now - this._lastSwoosh > 140) {
+        // kira kelajuan swipe (px/ms) untuk jadikan bunyi hiris lagi "hidup" - laju = tajam & kuat, perlahan = lembut
+        const dt = Math.max(1, now - (prev ? prev.t : now));
+        const dist = prev ? Math.hypot(p.x - prev.x, p.y - prev.y) : 0;
+        const speedFactor = Math.min(1, (dist / dt) / 1.8);
+        SFX.swoosh(speedFactor);
+        this._lastSwoosh = now;
+      }
 
       if (this.running && this.trail.length >= 2) {
         const a = this.trail[this.trail.length - 2];
@@ -236,6 +271,7 @@ class SliceGame {
       this.muted = !this.muted;
       document.getElementById("muteBtn").textContent = this.muted ? "🔇" : "🔊";
       if (this.bgm) this.bgm.muted = this.muted;
+      SFX.setMuted(this.muted);
     });
     document.getElementById("quitBtn").addEventListener("click", () => {
       this.running = false;
@@ -338,12 +374,14 @@ class SliceGame {
   _sliceFruit(f) {
     f.sliced = true;
     const correct = f.isTarget;
+    SFX.slice(); // kesan fizikal potong buah - main setiap kali kena, betul atau salah
 
     if (correct) {
       SFX.correct();
       this.combo = Math.min(this.combo + 1, 8);
       this.bestCombo = Math.max(this.bestCombo, this.combo);
       this.streak = (this.streak || 0) + 1;
+      SFX.streak(this.streak);
       const pts = 10 * this.combo;
       this.score += pts;
       document.getElementById("scoreVal").textContent = this.score;
@@ -420,6 +458,7 @@ class SliceGame {
   endRound(timeUp) {
     this.running = false;
     if (this.bgm) this.bgm.pause();
+    if (timeUp) SFX.roundWin(); else SFX.roundLose();
 
     const key = "sliceKata_best_" + this.category;
     const prevBest = parseInt(localStorage.getItem(key) || "0", 10);
@@ -452,7 +491,13 @@ class SliceGame {
     const pct = (remain / this.roundLength) * 100;
     const bar = document.getElementById("timerbar");
     bar.style.width = pct + "%";
-    bar.classList.toggle("low", pct < 20);
+    const isLow = pct < 20;
+    bar.classList.toggle("low", isLow);
+    if (isLow) {
+      if (!this._lastTick || now - this._lastTick > 1000) { SFX.tick(); this._lastTick = now; }
+    } else {
+      this._lastTick = 0;
+    }
 
     const GRAVITY = 850;
     this.fruits.forEach(f => {
