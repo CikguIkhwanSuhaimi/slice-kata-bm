@@ -40,18 +40,19 @@ const BOOM_FRAMES = [0,2,4,6,8].map(i => "boom_" + String(i).padStart(2,"0"));
 const SFX = (() => {
   let ctx = null;
   let masterGain = null;
+  const SFX_MASTER_VOL = 1.7; // naikkan kelantangan keseluruhan SFX berbanding BGM
   function ac() {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       masterGain = ctx.createGain();
-      masterGain.gain.value = 1;
+      masterGain.gain.value = SFX_MASTER_VOL;
       masterGain.connect(ctx.destination);
     }
     return ctx;
   }
   function setMuted(muted) {
     ac(); // pastikan context & masterGain wujud walau belum ada bunyi dimainkan lagi
-    masterGain.gain.value = muted ? 0 : 1;
+    masterGain.gain.value = muted ? 0 : SFX_MASTER_VOL;
   }
   function tone(freq, dur, type, vol, glideTo) {
     const c = ac();
@@ -153,6 +154,7 @@ class SliceGame {
     this.muted = false;
 
     this.bgm = document.getElementById("bgmAudio");
+    if (this.bgm) this.bgm.volume = 0.35; // lagu latar dikecilkan supaya SFX lagi jelas kedengaran
 
     this._bindInput();
     this._wireDom();
